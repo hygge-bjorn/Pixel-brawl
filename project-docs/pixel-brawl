@@ -1,0 +1,45 @@
+# Pixel Brawl — platform fighter
+
+Arcade platform fighter (Super Smash Bros-style controls) running entirely in the browser
+on a single `<canvas>`, with a Totalum-backed Hall of Fame.
+
+## Where things live
+
+| File | Purpose |
+|------|---------|
+| `src/app/page.tsx` | Entry screen + full menu flow (title → mode → CPU level → fighter → stage → match → results), Hall of Fame and How-to-play modals |
+| `src/components/game/BrawlGame.tsx` | Canvas host: keyboard input, fixed-60Hz game loop, pause overlay, mute |
+| `src/lib/game/content.ts` | Data only — 4 fighters (stats + move tables), 4 stages (layout + palette), 4 CPU difficulty profiles, blast zones |
+| `src/lib/game/engine.ts` | Physics, combat, knockback, shields/dodges, projectiles, CPU AI, camera, all rendering |
+| `src/lib/game/audio.ts` | Chiptune engine: 5 looping themes (menu + one per stage) and every SFX, synthesised live with Web Audio |
+| `src/lib/game/portrait.ts` | Static pixel portraits used by the select/result screens |
+| `src/app/api/matches/route.ts` | `GET` Hall of Fame (records + recent brawls), `POST` save a finished match |
+
+## Database (Totalum)
+
+- `fighter` — roster metadata (`slug`, `name`, `title`, `color`, `weight`, `speed`, `power`)
+- `stage` — stage metadata (`slug`, `name`, `music_theme`, `hazard_level`)
+- `match_result` — `winner` → fighter, `loser` → fighter, `stage` → stage (all `objectReference` manyToOne),
+  plus `mode`, `difficulty`, `winner_label`, `stocks_left`, `damage_dealt`, `duration_seconds`, `played_at`
+
+The match simulation never touches the database; only the result is persisted after a match ends.
+
+## Combat rules
+
+- Damage is a **percent**: it does not drain health, it scales knockback.
+- Knockback: `(baseKb + (percent * 0.66 + damage * 1.2) * kbScale) * 100/(weight + 40) * 1.14`.
+- Stocks (2/3/5). A fighter is KO'd on leaving the blast zone, respawns invulnerable for ~1.7s.
+- Tap attack = jab/tilt, hold attack + direction = charged smash, air + direction = aerials (down air spikes).
+- Special alone = projectile, + side = dash special, + up = recovery (one per airtime), + down = signature move.
+- Shield drains and can break; shield + side rolls, shield + down spot dodges, shield in air = air dodge.
+
+## CPU levels
+
+`ROOKIE / BRAWLER / VETERAN / NIGHTMARE` tune reaction frames, aggression, attack and special frequency,
+shield/dodge rates, spacing, recovery reliability, edgeguarding and DI quality (`DIFFICULTIES` in `content.ts`).
+
+## Controls
+
+- **P1** — `A`/`D` move, `W` jump, `S` fall/drop, `J` attack, `K` special, `L` shield
+- **P2** — arrows move/jump/drop, `,` attack, `.` special, `/` shield
+- `ESC` / `P` pause
